@@ -1,12 +1,36 @@
 {
   "name": "recall-cli",
-  "module": "index.ts",
+  "version": "1.0.0",
+  "description": "CLI tool for interacting with Obsidian notes using AI",
+  "module": "src/index.ts",
   "type": "module",
-  "private": true,
+  "bin": {
+    "recall": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "link": "bun link"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/inquirer": "^9.0.9"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
+    "glob": "^13.0.0",
+    "gray-matter": "^4.0.3",
+    "inquirer": "^13.2.1",
+    "marked": "^17.0.1",
+    "marked-terminal": "^7.3.0",
+    "ollama": "^0.6.3",
+    "openai": "^6.16.0",
+    "ora": "^9.1.0"
   }
 }
