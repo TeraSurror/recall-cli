@@ -1,36 +1,44 @@
 {
-  "name": "recall-cli",
-  "version": "1.0.0",
-  "description": "CLI tool for interacting with Obsidian notes using AI",
-  "module": "src/index.ts",
+  "name": "recall",
+  "version": "2.0.0-alpha.0",
+  "description": "Agentic TUI hub for all your Obsidian vaults — any LLM, local or hosted",
   "type": "module",
   "bin": {
-    "recall": "./src/index.ts"
+    "recall": "./src/cli/entry.ts"
   },
   "scripts": {
-    "start": "bun run src/index.ts",
-    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/cli/entry.ts",
+    "dev": "bun --watch run src/cli/entry.ts",
+    "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "link": "bun link"
+    "build": "bun build src/cli/entry.ts --compile --minify --outfile dist/recall"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.97",
+    "@ai-sdk/google": "^4.0.112",
+    "@ai-sdk/openai": "^4.0.109",
+    "@ai-sdk/openai-compatible": "^3.0.85",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "ai": "^7.0.163",
+    "chokidar": "^6.0.0",
+    "commander": "^15.0.0",
+    "diff": "^9.0.0",
+    "ink": "^8.0.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "jsonc-parser": "^3.3.1",
+    "ollama-ai-provider-v2": "^4.1.0",
+    "picomatch": "^4.0.7",
+    "react": "^19.3.1",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/inquirer": "^9.0.9"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
-    "chalk": "^5.6.2",
-    "commander": "^14.0.2",
-    "glob": "^13.0.0",
-    "gray-matter": "^4.0.3",
-    "inquirer": "^13.2.1",
-    "marked": "^17.0.1",
-    "marked-terminal": "^7.3.0",
-    "ollama": "^0.6.3",
-    "openai": "^6.16.0",
-    "ora": "^9.1.0"
+    "@types/bun": "^1.4.4",
+    "@types/diff": "^8.0.0",
+    "@types/picomatch": "^4.0.3",
+    "@types/react": "^19.3.0",
+    "typescript": "^7.0.2"
   }
 }
