@@ -41,9 +41,10 @@ export function buildProgram(): Command {
     .option("-p, --profile <name>", "model profile to use")
     .option("--vault <name...>", "limit to these vaults")
     .option("--resume [session]", "resume the last (or a given) chat session")
+    .option("--no-fullscreen", "render inline in the scrollback instead of taking over the terminal")
     .action(async (opts) => {
       const { startTui } = await import("../tui/start.tsx");
-      await startTui({ profile: opts.profile, vaults: opts.vault, resume: opts.resume });
+      await startTui({ profile: opts.profile, vaults: opts.vault, resume: opts.resume, fullscreen: opts.fullscreen });
     });
 
   program

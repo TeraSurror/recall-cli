@@ -9,6 +9,7 @@ import { getRecipe, listRecipes, renderRecipe } from "../recipes/load.ts";
 import { effectiveMode } from "../agent/approval.ts";
 import { errorMessage } from "../util/errors.ts";
 import { relTime } from "../util/term.ts";
+import { parsePathAndName, splitArgs } from "../util/args.ts";
 import type { ModelMessage } from "ai";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,7 +36,7 @@ export interface CommandEnv {
 export const HELP = `Commands
   /vault                    list vaults (★ = active in this session)
   /vault use <a> [b…]|all   limit the session to some vaults
-  /vault add <path> [name]  register a vault (indexes it)
+  /vault add <path> [name]  register a vault (indexes it); quote paths with spaces
   /vault remove <name>      unregister (notes untouched)
   /model [profile]          show or switch the model profile
   /mode [read-only|ask|auto|default]  write permission for this session
@@ -54,7 +55,7 @@ Tips
   ↑ / ↓       previous prompts`;
 
 export async function handleSlash(line: string, env: CommandEnv): Promise<void> {
-  const [cmd, ...args] = line.trim().slice(1).split(/\s+/);
+  const [cmd, ...args] = splitArgs(line.trim().slice(1));
   const rest = line.trim().slice(1 + (cmd?.length ?? 0)).trim();
   const info = (text: string) => env.notify({ kind: "info", text });
   const ok = (text: string) => env.notify({ kind: "success", text });
@@ -93,9 +94,11 @@ export async function handleSlash(line: string, env: CommandEnv): Promise<void> 
           return ok(`Session limited to: ${wanted.join(", ")}`);
         }
         if (sub === "add") {
-          const path = args[1];
-          if (!path) return fail("Usage: /vault add <path> [name]");
-          const { vault, warnings } = addVault(loadConfig().config, path, { name: args[2], force: args.includes("--force") });
+          const words = args.slice(1);
+          const force = words.some((w) => w === "--force" || w === "-f");
+          const { path, name } = parsePathAndName(words.filter((w) => w !== "--force" && w !== "-f"));
+          if (!path) return fail('Usage: /vault add <path> [name]   (quote paths with spaces: /vault add "~/My Vault")');
+          const { vault, warnings } = addVault(loadConfig().config, path, { name, force });
           env.ws.reload();
           for (const w of warnings) info(w);
           ok(`Added ${vault.name} → ${vault.root}. Indexing…`);

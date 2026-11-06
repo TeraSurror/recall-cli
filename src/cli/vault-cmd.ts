@@ -40,7 +40,7 @@ export function registerVaultCommands(program: Command) {
   vault
     .command("add")
     .description("Register a vault")
-    .argument("<path>", "vault folder")
+    .argument("<path...>", "vault folder (spaces are fine, quoted or not)")
     .option("-n, --name <name>", "short id (default: folder name)")
     .option("-m, --mode <mode>", "TUI write mode: read-only | ask | auto (default ask)")
     .option("--mcp-mode <mode>", "MCP/headless write mode (default read-only)")
@@ -48,8 +48,9 @@ export function registerVaultCommands(program: Command) {
     .option("--no-embeddings", "keyword search only for this vault")
     .option("-f, --force", "allow folders without .obsidian/")
     .option("--no-index", "don't index right away")
-    .action(async (path: string, opts) => {
+    .action(async (pathParts: string[], opts) => {
       const { config } = loadConfig();
+      const path = pathParts.join(" ");
       const { vault: v, warnings } = addVault(config, path, {
         name: opts.name,
         mode: parseMode(opts.mode, "--mode"),

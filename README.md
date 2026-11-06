@@ -50,8 +50,10 @@ Vaults are **only ever added explicitly**. Nothing is indexed until you register
 | | |
 |---|---|
 | CLI | `recall vault add <path> [--name n] [--mode ask] [--mcp-mode read-only] [--exclude 'Archive/**']` · `vault list` · `vault set` · `vault remove` · `vault default` |
-| TUI | `/vault add <path>` · `/vault remove <name>` · `/vault use work personal` (limit the session) |
+| TUI | `/vault add <path> [name]` · `/vault remove <name>` · `/vault use work personal` (limit the session) |
 | Config | edit `~/.config/recall/config.jsonc` by hand (comments survive CLI edits) |
+
+Paths with spaces are fine everywhere: quote them (`"~/My Vault"`), escape them (`~/My\ Vault`), or just type or drag the folder in unquoted, since Recall uses the longest prefix that names an existing folder.
 
 ```jsonc
 "vaults": {
@@ -100,7 +102,7 @@ Switch models mid-conversation with `/model <profile>`.
 
 ## Ways to use it
 
-**Interactive (TUI)**: run `recall`.
+**Interactive (TUI)**: run `recall`. It takes over the whole terminal (alternate screen) with the input pinned to the bottom; PgUp/PgDn or Shift-↑/↓ scroll the conversation. Use `recall --no-fullscreen` (or `RECALL_NO_FULLSCREEN=1`) for the inline, scrollback-friendly layout.
 - Ask across vaults: *"What have I written about pricing experiments this year?"*
 - Maintenance: *"Find orphan notes in Research and suggest links"*, *"Merge #ml into #machine-learning"*, *"Rename Projects/foo to Projects/Atlas and fix links"*
 - Capture: *"Add to today's daily note under Log: shipped v2"*. Recall knows your daily-note folder, format and template from `.obsidian/`.

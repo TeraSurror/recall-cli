@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Static, Text, useApp, useInput, useWindowSize } from "ink";
+import { Box, Static, Text, measureElement, useApp, useInput, useWindowSize, type DOMElement } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import type { ModelMessage } from "ai";
@@ -39,7 +39,12 @@ export interface AppProps {
   profile?: string;
   vaults?: string[];
   resume?: { id: string; messages: ModelMessage[] };
+  /** Take over the whole terminal (alternate screen) with the input pinned to the bottom. */
+  fullscreen?: boolean;
 }
+
+/** Fullscreen mode renders only the most recent transcript items, to keep frames cheap. */
+const MAX_FULLSCREEN_ITEMS = 400;
 
 function ToolLine({ seg, paused }: { seg: ToolSeg; paused?: boolean }) {
   const icon = seg.name.match(/^(create|edit|append|set|move|delete)/) ? "✎" : "⌕";
@@ -110,9 +115,17 @@ function renderItem(it: Item, ws: Workspace) {
   }
 }
 
-export function App({ ws, profile, vaults, resume }: AppProps) {
+export function App({ ws, profile, vaults, resume, fullscreen = false }: AppProps) {
   const { exit } = useApp();
-  const { rows } = useWindowSize();
+  const { rows, columns } = useWindowSize();
+  // Fullscreen transcript scrolling: lines scrolled up from the bottom.
+  const [scroll, setScroll] = useState(0);
+  const viewRef = useRef<DOMElement>(null);
+  const contentRef = useRef<DOMElement>(null);
+  const maxScroll = () => {
+    if (!viewRef.current || !contentRef.current) return 0;
+    return Math.max(0, measureElement(contentRef.current).height - measureElement(viewRef.current).height);
+  };
   const [items, setItems] = useState<Item[]>(() => [item({ kind: "banner" })]);
   const [live, setLive] = useState<Seg[]>([]);
   const [input, setInput] = useState("");
@@ -241,6 +254,7 @@ export function App({ ws, profile, vaults, resume }: AppProps) {
       const names = activeVaults ?? ws.vaultNames();
       const { prompt, attached } = expandMentions(raw, ws, names);
       push({ kind: "user", text: display ?? raw });
+      setScroll(0);
       if (attached.length) notify({ kind: "info", text: `attached ${attached.join(", ")}` });
       setBusy(true);
       const ac = new AbortController();
@@ -308,7 +322,8 @@ export function App({ ws, profile, vaults, resume }: AppProps) {
             agent.clear();
             sessionId.current = newSessionId();
             ctx.sessionId = sessionId.current;
-            console.clear();
+            if (!fullscreen) console.clear();
+            setScroll(0);
             setItems([item({ kind: "banner" })]);
           },
           submitPrompt: (p, d) => void send(p, d),
@@ -368,6 +383,12 @@ export function App({ ws, profile, vaults, resume }: AppProps) {
         return;
       }
       if (key.escape && busy) return abortRef.current?.abort();
+      if (fullscreen && !pending && (key.pageUp || key.pageDown || (key.shift && (key.upArrow || key.downArrow)))) {
+        const step = key.pageUp || key.pageDown ? Math.max(1, Math.floor(rows / 2)) : 1;
+        const up = key.pageUp || key.upArrow;
+        setScroll((s) => Math.min(maxScroll(), Math.max(0, s + (up ? step : -step))));
+        return;
+      }
       if (busy || pending) return;
       if (key.tab && suggestions.length) {
         setInput((v) => v.replace(/@(?:\[\[)?([^\]@]*)$/, `@[[${suggestions[0]}]] `));
@@ -391,10 +412,8 @@ export function App({ ws, profile, vaults, resume }: AppProps) {
     return p ? `${agent.profileName ?? ws.config.defaultProfile} · ${p.model}` : "no model";
   })();
 
-  return (
-    <Box flexDirection="column">
-      <Static items={items}>{(it) => renderItem(it, ws)}</Static>
-
+  const liveView = (
+    <>
       {live.map((seg, i) =>
         seg.type === "text" ? (
           <Box key={`l${i}`} marginTop={1}>
@@ -412,42 +431,74 @@ export function App({ ws, profile, vaults, resume }: AppProps) {
           <Text color="gray"> thinking… (esc to interrupt)</Text>
         </Box>
       )}
+    </>
+  );
 
-      {pending ? (
-        <Box marginTop={1}>
-          <DiffReview cs={pending.cs} onDecide={pending.resolve} rows={rows} />
-        </Box>
-      ) : (
-        <Box flexDirection="column" marginTop={1}>
-          <Box borderStyle="round" borderColor={busy ? "gray" : "magenta"} paddingX={1}>
-            <Text color="magenta">› </Text>
-            {busy ? (
-              <Text color="gray">{input || "…"}</Text>
-            ) : (
-              <TextInput value={input} onChange={setInput} onSubmit={onSubmit} placeholder="Ask about your notes, or /help" />
-            )}
-          </Box>
-          {suggestions.length > 0 && (
-            <Box paddingLeft={3}>
-              <Text color="gray">
-                tab → <Text color="cyan">[[{suggestions[0]}]]</Text>
-                {suggestions.length > 1 && `   ${suggestions.slice(1).join(" · ")}`}
-              </Text>
-            </Box>
-          )}
+  const inputView = pending ? (
+    <Box marginTop={1}>
+      <DiffReview cs={pending.cs} onDecide={pending.resolve} rows={rows} />
+    </Box>
+  ) : (
+    <Box flexDirection="column" marginTop={1} flexShrink={0}>
+      <Box borderStyle="round" borderColor={busy ? "gray" : "magenta"} paddingX={1}>
+        <Text color="magenta">› </Text>
+        {busy ? (
+          <Text color="gray">{input || "…"}</Text>
+        ) : (
+          <TextInput value={input} onChange={setInput} onSubmit={onSubmit} placeholder="Ask about your notes, or /help" />
+        )}
+      </Box>
+      {suggestions.length > 0 && (
+        <Box paddingLeft={3}>
+          <Text color="gray">
+            tab → <Text color="cyan">[[{suggestions[0]}]]</Text>
+            {suggestions.length > 1 && `   ${suggestions.slice(1).join(" · ")}`}
+          </Text>
         </Box>
       )}
+    </Box>
+  );
 
-      <Box paddingX={1} justifyContent="space-between">
-        <Text color="gray">
-          {names.length ? names.join(", ") : "no vaults"} · <Text color={modes.includes("auto") ? "yellow" : modes.includes("ask") ? "cyan" : "green"}>{modes.join("/") || "–"}</Text>
-          {modeOverride ? <Text color="yellow"> (session)</Text> : null}
-        </Text>
-        <Text color="gray">
-          {indexStatus} · {profileLabel}
-          {usage.input + usage.output > 0 ? ` · ${(usage.input / 1000).toFixed(1)}k↑ ${(usage.output / 1000).toFixed(1)}k↓` : ""}
-        </Text>
+  const statusView = (
+    <Box paddingX={1} justifyContent="space-between" flexShrink={0}>
+      <Text color="gray" wrap="truncate">
+        {names.length ? names.join(", ") : "no vaults"} · <Text color={modes.includes("auto") ? "yellow" : modes.includes("ask") ? "cyan" : "green"}>{modes.join("/") || "–"}</Text>
+        {modeOverride ? <Text color="yellow"> (session)</Text> : null}
+      </Text>
+      <Text color="gray" wrap="truncate">
+        {indexStatus} · {profileLabel}
+        {usage.input + usage.output > 0 ? ` · ${(usage.input / 1000).toFixed(1)}k↑ ${(usage.output / 1000).toFixed(1)}k↓` : ""}
+      </Text>
+    </Box>
+  );
+
+  if (fullscreen) {
+    // The transcript is bottom-anchored and clipped; scrolling pushes it down past the bottom edge.
+    return (
+      <Box flexDirection="column" height={rows} width={columns}>
+        <Box ref={viewRef} flexDirection="column" flexGrow={1} flexShrink={1} justifyContent="flex-end" overflow="hidden" paddingX={1}>
+          <Box ref={contentRef} flexDirection="column" flexShrink={0} marginBottom={-scroll}>
+            {items.slice(-MAX_FULLSCREEN_ITEMS).map((it) => renderItem(it, ws))}
+            {liveView}
+          </Box>
+        </Box>
+        {scroll > 0 && (
+          <Box paddingX={1} flexShrink={0}>
+            <Text color="yellow">↑ scrolled {scroll} lines · PgDn / Shift-↓ to return</Text>
+          </Box>
+        )}
+        {inputView}
+        {statusView}
       </Box>
+    );
+  }
+
+  return (
+    <Box flexDirection="column">
+      <Static items={items}>{(it) => renderItem(it, ws)}</Static>
+      {liveView}
+      {inputView}
+      {statusView}
     </Box>
   );
 }

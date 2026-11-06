@@ -10,6 +10,8 @@ export interface TuiOptions {
   vaults?: string[];
   /** true → most recent session; string → that session id. */
   resume?: boolean | string;
+  /** Use the alternate screen with a pinned input (default true; RECALL_NO_FULLSCREEN=1 disables). */
+  fullscreen?: boolean;
 }
 
 export async function startTui(opts: TuiOptions = {}): Promise<void> {
@@ -25,7 +27,11 @@ export async function startTui(opts: TuiOptions = {}): Promise<void> {
     if (!s) throw new RecallError("No session to resume.");
     resume = { id: s.info.id, messages: s.messages };
   }
-  const app = render(<App ws={ws} profile={opts.profile} vaults={opts.vaults} resume={resume} />, { exitOnCtrlC: false });
+  const fullscreen = (opts.fullscreen ?? true) && !process.env.RECALL_NO_FULLSCREEN;
+  const app = render(<App ws={ws} profile={opts.profile} vaults={opts.vaults} resume={resume} fullscreen={fullscreen} />, {
+    exitOnCtrlC: false,
+    alternateScreen: fullscreen,
+  });
   await app.waitUntilExit();
   ws.close();
 }
